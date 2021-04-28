@@ -206,6 +206,8 @@ csx/
 ecf/
 rcf/
 
+/OpenCV/vc15/modelfiles
+
 # Windows Store app package directories and files
 AppPackages/
 BundleArtifacts/

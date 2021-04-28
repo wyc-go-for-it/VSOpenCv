@@ -8,7 +8,7 @@ static string img_dir = "F:/OpenCV/WYCOPENCV/data/";
 int main(int argc,char **argv) {
  
 	OpenCVTest ot;
-	ot.mouseCallback(img_dir + "squirrel_cls.jpg");
+	ot.recognition_number(img_dir + "number.png");
 	waitKey();
 	destroyAllWindows();
 	return 0;
