@@ -8,7 +8,7 @@ static string img_dir = "F:/OpenCV/WYCOPENCV/data/";
 int main(int argc,char **argv) {
  
 	OpenCVTest ot;
-	ot.recognition_number(img_dir + "number.png");
+	ot.OHoughLines(img_dir + "leuvenA.jpg");
 	waitKey();
 	destroyAllWindows();
 	return 0;

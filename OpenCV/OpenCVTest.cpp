@@ -57,7 +57,7 @@ void OpenCVTest::readVideo(const string &path)
 		}
 		imshow("result", result);
 		//按原FPS显示
-		if (waitKey(500 / FPS) == 27)
+		if (waitKey(500 / FPS) == 27.0)
 		{
 			cout << "ESC退出!" << endl;
 			break;
@@ -211,7 +211,6 @@ void OpenCVTest::mouseTrack(int event, int x, int y, int flags, void * userdata)
 		break;
 	}
 }
-
 void OpenCVTest::textbox_draw(Mat src, std::vector<Rect>& groups, std::vector<float>& probs, std::vector<int>& indexes)
 {
 	for (size_t i = 0; i < indexes.size(); i++)
@@ -235,7 +234,6 @@ void OpenCVTest::textbox_draw(Mat src, std::vector<Rect>& groups, std::vector<fl
 			rectangle(src, groups[i], Scalar(255), 3, 8);
 	}
 }
-
 void OpenCVTest::recognition(const string & path)
 {
 	const string model_dir = "./vc15/modelfiles/";
@@ -293,7 +291,6 @@ void OpenCVTest::recognition(const string & path)
 	imshow("Text recognition", image_copy);
 	cout << "Recognition finished. Press any key to exit.\n";
 }
-
 void OpenCVTest::recognition_number(const string & path)
 {
 	Mat src = imread(path);
@@ -302,43 +299,54 @@ void OpenCVTest::recognition_number(const string & path)
 	cvtColor(src,gary,COLOR_BGR2GRAY);
 
 	//二值
-	Mat thresh_img;
+	Mat thresh_img, thresh_copy;
 	threshold(gary, thresh_img,135,255, THRESH_BINARY);
+	imshow("thresh_img", thresh_img);
+	thresh_copy = thresh_img.clone();
 
 	// 4.腐蚀  
 	Mat kernel_erode = getStructuringElement(MORPH_RECT, Size(3, 3));
 	erode(thresh_img, thresh_img, kernel_erode);
-
+	imshow("erode", thresh_img);
+  
 	blur(thresh_img, thresh_img, Size(3, 3));
 	//边缘检测
 	Canny(thresh_img, thresh_img, 3, 9, 3);
+	imshow("Canny", thresh_img);
 
 	vector<vector<Point>> contours;
 	findContours(thresh_img, contours, RETR_EXTERNAL, CHAIN_APPROX_NONE);
  
  
- 
-
 	vector<string> files_names = listFiles("./cut_img/*.*");
 	string fname;
 
-	Mat cut,comp;
+	Mat cut,comp,resize_img;
 	Rect t_rect;
 	for (int i = 0; i < contours.size(); i++)
 	{
 		t_rect = boundingRect(contours[i]);
  
-		cut = src(t_rect);
+		cut = ~thresh_copy(t_rect);
 
+		
 		for (size_t i = 0,size = files_names.size(); i < size; i++)
 		{
 			fname ="./cut_img/"+ files_names.at(i);
 			comp = imread(fname);
+			threshold(comp, comp, 135, 255, THRESH_BINARY);
+			imshow("comp", comp);
 			if (!comp.empty()) {
-				float percentage = compare(cut,comp);
+
+				resize(cut, resize_img, comp.size(),0,0,INTER_AREA);
+				imshow("resize", resize_img);
+
+				waitKey();
+
+				float percentage = compare(resize_img,comp);
 				cout << "file:" << fname << " percentage:" << percentage << "\n";
 
-				if (percentage > 0.8) {
+				if (percentage > 0.5) {
 					stringstream ss;
 					ss << i;
 					putText(src, ss.str(), Point(t_rect.x , t_rect.y + t_rect.height / 2), FONT_HERSHEY_SCRIPT_SIMPLEX, 2, Scalar(0,0,255), 2, 8);
@@ -380,4 +388,84 @@ float OpenCVTest::compare(Mat src, Mat model)
 	}
 	percentage = same / (same + different);
 	return percentage;                     //返回相似度
+}
+void OpenCVTest::Qpyr(const string & path)
+{
+	Mat img = imread(path);
+	imshow("原始图", img);
+
+	Mat dstUp, dstDown;
+	pyrUp(img, dstUp,Size(img.cols * 2, img.rows * 2)); //放大一倍
+	pyrDown(img, dstDown, Size(img.cols * 0.5f, img.rows * 0.5f)); //缩小为原来的一半
+	imshow("尺寸放大之后", dstUp);
+	imshow("尺寸缩小之后", dstDown);
+
+}
+void OpenCVTest::OCanny(const string &path) {
+	Mat img = imread(path);
+	imshow("原始图", img);
+	Mat edge, grayImage;
+
+	//将原始图转化为灰度图
+	cvtColor(img, grayImage, COLOR_BGR2GRAY);
+
+	//先使用3*3内核来降噪
+	blur(grayImage, edge, Size(3, 3));
+
+	//运行canny算子
+	Canny(edge, edge, 3, 9, 3);
+
+	imshow("边缘提取效果", edge);
+
+
+	//Sobel算法
+	Mat grad_x, grad_y;
+	Mat abs_grad_x, abs_grad_y, dst;
+
+	//求x方向梯度
+	Sobel(grayImage, grad_x, CV_16S, 1, 0, 3, 1, 1, BORDER_DEFAULT);
+	convertScaleAbs(grad_x, abs_grad_x);
+	imshow("x方向soble", abs_grad_x);
+
+	//求y方向梯度
+	Sobel(grayImage, grad_y, CV_16S, 0, 1, 3, 1, 1, BORDER_DEFAULT);
+	convertScaleAbs(grad_y, abs_grad_y);
+	imshow("y向soble", abs_grad_y);
+
+	//合并梯度
+	addWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0, dst);
+	imshow("整体方向soble", dst);
+
+	waitKey(0);
+}
+void OpenCVTest::OHoughLines(const string &path) {
+	Mat srcImage = imread(path);
+	imshow("Src Pic", srcImage);
+
+	Mat midImage, dstImage;
+
+	Canny(srcImage, midImage, 50, 200, 3);
+
+	cvtColor(midImage, dstImage, COLOR_GRAY2BGR);
+ 
+	vector<Vec2f> lines;
+ 
+	HoughLines(midImage, lines, 1, CV_PI / 180, 220, 0, 0);
+
+	for (size_t i = 0; i < lines.size(); i++)
+	{
+		float rho = lines[i][0]; //就是圆的半径r
+		float theta = lines[i][1]; //就是直线的角度
+		Point pt1, pt2;
+		double a = cos(theta), b = sin(theta);
+		double x0 = a * rho, y0 = b * rho;
+		pt1.x = cvRound(x0 + 1000 * (-b));
+		pt1.y = cvRound(y0 + 1000 * (a));
+		pt2.x = cvRound(x0 - 1000 * (-b));
+		pt2.y = cvRound(y0 - 1000 * (a));
+
+		line(dstImage, pt1, pt2, Scalar(55, 100, 195), 1, LINE_AA);
+		imshow("边缘检测后的图", midImage);
+		imshow("最终效果图", dstImage);
+	}
 }

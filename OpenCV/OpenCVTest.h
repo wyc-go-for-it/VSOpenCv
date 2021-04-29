@@ -61,7 +61,9 @@ public:
 		return files_name;
  	}
 
-
+	void Qpyr(const string &path);//图像上、下采样
+	void OCanny(const string &path);//边缘检测
+	void OHoughLines(const string &path);
 private:
 	Mat MoveDetect(Mat &background, Mat &frame);
 	//截图
