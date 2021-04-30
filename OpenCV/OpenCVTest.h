@@ -64,15 +64,23 @@ public:
 	void Qpyr(const string &path);//图像上、下采样
 	void OCanny(const string &path);//边缘检测
 	void OHoughLines(const string &path);
+	void OHoughLinesP(const string &path);
+	void ORemap(const string &path,Mat &dst);
+	void OMatchTemplate(const Mat &src,const Mat &temp);
 private:
 	Mat MoveDetect(Mat &background, Mat &frame);
 	//截图
 	static void mouseTrack(int event, int x, int y, int flags, void *userdata);
-	const string windowName = "mouseTrack",captureWindow = "capture";
-	Mat mMouseDrawImage;
+	const string mouseTrackWindowName = "mouseTrack",captureWindow = "capture", TemplateWindow = "match";
+	Mat mMouseDrawImage,mCaptureImage;
 	Point mDown;
 	bool isDown;
 	//文字识别
 	void textbox_draw(Mat src, std::vector<Rect>& groups, std::vector<float>& probs, std::vector<int>& indexes);
 	float compare(Mat first,Mat second);
+	//模板匹配
+	static void on_matching(int, void*);
+	Mat g_srcImage, g_tempalteImage, g_resultImage;
+	int g_nMatchMethod;
+	int g_nMaxTrackbarNum = 5;
 };

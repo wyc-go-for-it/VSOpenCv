@@ -8,7 +8,7 @@ static string img_dir = "F:/OpenCV/WYCOPENCV/data/";
 int main(int argc,char **argv) {
  
 	OpenCVTest ot;
-	ot.OHoughLines(img_dir + "leuvenA.jpg");
+	ot.mouseCallback(img_dir + "nba.jpg");
 	waitKey();
 	destroyAllWindows();
 	return 0;

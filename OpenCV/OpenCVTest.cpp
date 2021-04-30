@@ -57,7 +57,7 @@ void OpenCVTest::readVideo(const string &path)
 		}
 		imshow("result", result);
 		//按原FPS显示
-		if (waitKey(500 / FPS) == 27.0)
+		if (waitKey(500 / FPS) == 27)
 		{
 			cout << "ESC退出!" << endl;
 			break;
@@ -134,9 +134,9 @@ void OpenCVTest::mouseCallback(const string & path)
 		waitKey(3000);
 		return;
 	}
-	namedWindow(windowName,WINDOW_FREERATIO);
-	imshow(windowName, mMouseDrawImage);
-	cv::setMouseCallback(windowName, mouseTrack,this);
+	namedWindow(mouseTrackWindowName,WINDOW_FREERATIO);
+	imshow(mouseTrackWindowName, mMouseDrawImage);
+	cv::setMouseCallback(mouseTrackWindowName, mouseTrack,this);
 }
 void OpenCVTest::mouseTrack(int event, int x, int y, int flags, void * userdata)
 {
@@ -190,12 +190,13 @@ void OpenCVTest::mouseTrack(int event, int x, int y, int flags, void * userdata)
 			ss << "width:" << rect.width << "height:" << rect.height;
 			putText(mask, ss.str(), t->mDown, FONT_HERSHEY_SCRIPT_SIMPLEX,1, Scalar(0,0,255),2, 8);
  
-			imshow(t->windowName, mask);
+			imshow(t->mouseTrackWindowName, mask);
 
 			if (rect.area() > 0 && x <= mask.rows  && y <= mask.cols && x >= 0  && y >=  0)
 			{
 				t->mMouseDrawImage.copyTo(mask);
-				imshow(t->captureWindow,mask(rect));
+				t->mCaptureImage = mask(rect);
+				imshow(t->captureWindow, t->mCaptureImage);
 			}
 		}
 		break;
@@ -206,6 +207,10 @@ void OpenCVTest::mouseTrack(int event, int x, int y, int flags, void * userdata)
 			t->mDown.y = 0;
 		}
 		cout << "EVENT_LBUTTONUP " << "X:" << x << "Y:" << y << "\n";
+		if (!t->mCaptureImage.empty())
+		{
+			t->OMatchTemplate(t->mMouseDrawImage, t->mCaptureImage);
+		}
 		break;
 	default:
 		break;
@@ -395,8 +400,9 @@ void OpenCVTest::Qpyr(const string & path)
 	imshow("原始图", img);
 
 	Mat dstUp, dstDown;
+ 
 	pyrUp(img, dstUp,Size(img.cols * 2, img.rows * 2)); //放大一倍
-	pyrDown(img, dstDown, Size(img.cols * 0.5f, img.rows * 0.5f)); //缩小为原来的一半
+	pyrDown(img, dstDown, cv::Size2i::Size_(img.cols << 1, img.rows << 1)); //缩小为原来的一半
 	imshow("尺寸放大之后", dstUp);
 	imshow("尺寸缩小之后", dstDown);
 
@@ -450,22 +456,140 @@ void OpenCVTest::OHoughLines(const string &path) {
  
 	vector<Vec2f> lines;
  
-	HoughLines(midImage, lines, 1, CV_PI / 180, 220, 0, 0);
+	HoughLines(midImage, lines, 1, CV_PI / 180, 350, 0, 0);
 
 	for (size_t i = 0; i < lines.size(); i++)
 	{
-		float rho = lines[i][0]; //就是圆的半径r
-		float theta = lines[i][1]; //就是直线的角度
+		float rho = lines[i][0]; 
+		float theta = lines[i][1];
+
+		cout << "theta:" << 180 / CV_PI * theta << "\n";
+
 		Point pt1, pt2;
 		double a = cos(theta), b = sin(theta);
 		double x0 = a * rho, y0 = b * rho;
-		pt1.x = cvRound(x0 + 1000 * (-b));
-		pt1.y = cvRound(y0 + 1000 * (a));
-		pt2.x = cvRound(x0 - 1000 * (-b));
-		pt2.y = cvRound(y0 - 1000 * (a));
+		pt1.x = cvRound(x0 - 280 * (b));
+		pt1.y = cvRound(y0 + 280 * (a));
+		pt2.x = cvRound(x0 + 280 * (b));
+		pt2.y = cvRound(y0 - 280 * (a));
+
+		circle(dstImage,Point(x0,y0), 5, Scalar(0, 0, 255));
+	 
 
 		line(dstImage, pt1, pt2, Scalar(55, 100, 195), 1, LINE_AA);
 		imshow("边缘检测后的图", midImage);
 		imshow("最终效果图", dstImage);
 	}
+}
+
+void OpenCVTest::OHoughLinesP(const string & path)
+{
+	Mat srcImage = imread(path);
+	imshow("Src Pic", srcImage);
+
+	Mat midImage, dstImage;
+
+	Canny(srcImage, midImage, 50, 200, 3);
+	cvtColor(midImage, dstImage, COLOR_GRAY2BGR);
+
+
+
+
+	vector<Vec4i> lines;
+	//与HoughLines不同的是，HoughLinesP得到lines的是含有直线上点的坐标的，所以下面进行划线时就不再需要自己求出两个点来确定唯一的直线了
+	HoughLinesP(midImage, lines, 1, CV_PI / 180, 80, 50, 10);//注意第五个参数，为阈值
+
+	//依次画出每条线段
+	for (size_t i = 0; i < lines.size(); i++)
+	{
+		Vec4i l = lines[i];
+
+		line(dstImage, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(186, 88, 255), 1, LINE_AA); //Scalar函数用于调节线段颜色
+	}
+	imshow("边缘检测后的图", midImage);
+	imshow("最终效果图", dstImage);
+}
+
+void OpenCVTest::ORemap(const string & path,Mat &dstImage)
+{
+	Mat srcImage = imread(path);
+
+	if (!srcImage.data)
+	{
+		cout << "找不到这张图片！" << endl;
+		return ;
+	}
+
+	imshow("Src Pic", srcImage);
+
+	Mat map_x, map_y;
+	dstImage.create(srcImage.size(), srcImage.type());//创建和原图一样的效果图
+	map_x.create(srcImage.size(), CV_32FC1);
+	map_y.create(srcImage.size(), CV_32FC1);
+
+	//遍历每一个像素点，改变map_x & map_y的值,实现对角翻转
+	for (int j = 0; j < srcImage.rows; j++)
+	{
+		for (int i = 0; i < srcImage.cols; i++)
+		{
+			map_x.at<float>(j, i) = static_cast<float>(srcImage.cols - i);
+			map_y.at<float>(j, i) = static_cast<float>(srcImage.rows - j);
+		}
+	}
+
+	//进行重映射操作
+	remap(srcImage, dstImage, map_x, map_y, INTER_LINEAR, BORDER_CONSTANT, Scalar(0, 0, 0));
+	imshow("重映射效果图", dstImage);
+}
+
+void OpenCVTest::OMatchTemplate(const Mat &img, const Mat &templ)
+{
+	g_srcImage = img.clone();
+	if (!g_srcImage.data)
+	{
+		cout << "原始图读取失败" << endl;
+		return ;
+	}
+	g_tempalteImage = templ;
+	if (!g_tempalteImage.data)
+	{
+		cout << "模板图读取失败" << endl;
+		return ;
+	}
+
+	namedWindow("原始图", WINDOW_AUTOSIZE);
+	createTrackbar("方法", "原始图", &g_nMatchMethod, g_nMaxTrackbarNum, on_matching,this);
+
+	on_matching(0, this);
+
+}
+void OpenCVTest::on_matching(int, void * obj)
+{
+	OpenCVTest *t = ((OpenCVTest *)obj);
+
+	Mat srcImage;
+	t->g_srcImage.copyTo(srcImage);
+	int resultImage_cols = t->g_srcImage.cols - t->g_tempalteImage.cols + 1;
+	int resultImage_rows = t->g_srcImage.rows - t->g_tempalteImage.rows + 1;
+	t->g_resultImage.create(resultImage_cols, resultImage_rows, CV_32FC3);
+
+	matchTemplate(t->g_srcImage, t->g_tempalteImage, t->g_resultImage, t->g_nMatchMethod);
+	normalize(t->g_resultImage, t->g_resultImage, 0, 2, NORM_MINMAX, -1, Mat());
+	double minValue, maxValue;
+	Point minLocation, maxLocation, matchLocation;
+	minMaxLoc(t->g_resultImage, &minValue, &maxValue, &minLocation, &maxLocation);
+
+	if (t->g_nMatchMethod == TM_SQDIFF || t->g_nMatchMethod == TM_SQDIFF_NORMED)
+	{
+		matchLocation = minLocation;
+	}
+	else
+	{
+		matchLocation = maxLocation;
+	}
+
+	rectangle(srcImage, matchLocation, Point(matchLocation.x + t->g_tempalteImage.cols, matchLocation.y + t->g_tempalteImage.rows), Scalar(0, 0, 255), 2, 8, 0);
+	rectangle(t->g_resultImage, matchLocation, Point(matchLocation.x + t->g_tempalteImage.cols, matchLocation.y + t->g_tempalteImage.rows), Scalar(0, 0, 255), 2, 8, 0);
+
+	imshow("原始图", srcImage);
 }
