@@ -63,10 +63,14 @@ public:
 
 	void Qpyr(const string &path);//Í¼ÏñÉÏ¡¢ÏÂ²ÉÑù
 	void OCanny(const string &path);//±ßÔµ¼ì²â
-	void OHoughLines(const string &path);
+	void OHoughLines(const string &path);//»ô·ò±ä»»£¬²éÕÒÇúÏß
 	void OHoughLinesP(const string &path);
-	void ORemap(const string &path,Mat &dst);
-	void OMatchTemplate(const Mat &src,const Mat &temp);
+	void ORemap(const string &path,Mat &dst);//Ó³Éä
+	void OMatchTemplate(const Mat &src,const Mat &temp);//Ä£°åÆ¥Åä
+	void ORepairImg(const string &path);//Í¼Æ¬ĞŞ¸´
+	void OContours(const string &path);//²éÕÒÂÖÀª
+	 static void thresh_callback(int, void*);
+
 private:
 	Mat MoveDetect(Mat &background, Mat &frame);
 	//½ØÍ¼
@@ -83,4 +87,10 @@ private:
 	Mat g_srcImage, g_tempalteImage, g_resultImage;
 	int g_nMatchMethod;
 	int g_nMaxTrackbarNum = 5;
+
+	//²éÕÒÂÖÀª
+	Mat ContourSrc; 
+	Mat ContourSrcGray;
+	int ContourThresh = 100;
+	int ContourMaxThresh = 255;
 };

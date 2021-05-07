@@ -38,7 +38,7 @@ void OpenCVTest::readVideo(const string &path)
 			cout << "frame is empty!" << endl;
 			break;
 		}
-		imshow("frame", frame);
+		cv::imshow("frame", frame);
 
 		// 获取帧位置(第几帧)
 		double framePosition = video.get(CAP_PROP_POS_FRAMES);
@@ -55,9 +55,9 @@ void OpenCVTest::readVideo(const string &path)
 			// 调用MoveDetect()进行运动物体检测，返回值存入result
 			result = MoveDetect(temp, frame);
 		}
-		imshow("result", result);
+		cv::imshow("result", result);
 		//按原FPS显示
-		if (waitKey(500 / FPS) == 27)
+		if (waitKey((int)(500 / FPS)) == 27)
 		{
 			cout << "ESC退出!" << endl;
 			break;
@@ -96,7 +96,7 @@ Mat OpenCVTest::MoveDetect(Mat &background, Mat &frame)
 	drawContours(result, contours, -1, Scalar(0, 0, 255), 2);
 	// 7.查找正外接矩形  
 	vector<Rect> boundRect(contours.size());
-	for (int i = 0; i < contours.size(); i++)
+	for (uint i = 0; i < contours.size(); i++)
 	{
 		boundRect[i] = boundingRect(contours[i]);
 		// 在result上绘制正外接矩形
@@ -328,7 +328,7 @@ void OpenCVTest::recognition_number(const string & path)
 
 	Mat cut,comp,resize_img;
 	Rect t_rect;
-	for (int i = 0; i < contours.size(); i++)
+	for (uint i = 0; i < contours.size(); i++)
 	{
 		t_rect = boundingRect(contours[i]);
  
@@ -592,4 +592,90 @@ void OpenCVTest::on_matching(int, void * obj)
 	rectangle(t->g_resultImage, matchLocation, Point(matchLocation.x + t->g_tempalteImage.cols, matchLocation.y + t->g_tempalteImage.rows), Scalar(0, 0, 255), 2, 8, 0);
 
 	imshow("原始图", srcImage);
+}
+
+void OpenCVTest::ORepairImg(const string & path)
+{
+	Mat imageSource = imread(path);
+	if (!imageSource.data)
+	{
+		cout << "load image error...";
+		return;
+	}
+	imshow("原图", imageSource);
+	Mat imageGray;
+	//转换为灰度图
+	cvtColor(imageSource, imageGray, COLOR_BGR2GRAY, 0);
+	Mat imageMask = Mat(imageSource.size(), CV_8UC1, Scalar::all(0));
+
+	//通过阈值处理生成Mask
+	threshold(imageGray, imageMask, 120, 255,THRESH_BINARY);
+	Mat Kernel = getStructuringElement(MORPH_RECT, Size(3, 3));
+	//对Mask膨胀处理，增加Mask面积
+	dilate(imageMask, imageMask, Kernel);
+
+	//图像修复
+	inpaint(imageSource, imageMask, imageSource, 5, INPAINT_NS);
+	imshow("Mask", imageMask);
+	imshow("修复后", imageSource);
+}
+
+void OpenCVTest::OContours(const string & path)
+{
+	ContourSrc = imread(path);
+
+	/// 把原图像转化成灰度图像并进行平滑
+	cvtColor(ContourSrc, ContourSrcGray, COLOR_BGR2GRAY);
+	blur(ContourSrcGray, ContourSrcGray, Size(3, 3));
+
+	/// 创建新窗口
+	const char* source_window = "Source";
+	namedWindow(source_window, WINDOW_AUTOSIZE);
+	imshow(source_window, ContourSrc);
+
+	createTrackbar("thresh:", "Source", &ContourThresh, ContourMaxThresh, thresh_callback,this);
+	thresh_callback(0, this);
+}
+
+void OpenCVTest::thresh_callback(int, void* userdata)
+{
+
+	OpenCVTest *t = ((OpenCVTest *)userdata);
+
+	Mat threshold_output;
+	vector<vector<Point> > contours;
+	vector<Vec4i> hierarchy;
+
+	/// 使用Threshold检测边缘
+	threshold(t->ContourSrcGray, threshold_output, t->ContourThresh, 255, THRESH_BINARY);
+	/// 找到轮廓
+	findContours(threshold_output, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE, Point(0, 0));
+
+	/// 多边形逼近轮廓 + 获取矩形和圆形边界框
+	vector<vector<Point> > contours_poly(contours.size());
+	vector<Rect> boundRect(contours.size());
+	vector<Point2f>center(contours.size());
+	vector<float>radius(contours.size());
+
+	for (size_t i = 0; i < contours.size(); i++)
+	{
+		approxPolyDP(Mat(contours[i]), contours_poly[i], 3, true);
+		boundRect[i] = boundingRect(Mat(contours_poly[i]));
+		minEnclosingCircle(contours_poly[i], center[i], radius[i]);
+	}
+
+	cv::RNG rng(12345);
+	/// 画多边形轮廓 + 包围的矩形框 + 圆形框
+	Mat drawing = Mat::zeros(threshold_output.size(), CV_8UC3);
+	for (size_t i = 0; i < contours.size(); i++)
+	{
+		Scalar color = Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
+		drawContours(drawing, contours_poly, i, color, 1, 8, vector<Vec4i>(), 0, Point());
+		rectangle(drawing, boundRect[i].tl(), boundRect[i].br(), color, 2, 8, 0);
+		circle(drawing, center[i], (int)radius[i], color, 2, 8, 0);
+	}
+
+	/// 显示在一个窗口
+	namedWindow("Contours", WINDOW_AUTOSIZE);
+	imshow("Contours", drawing);
 }
