@@ -679,3 +679,42 @@ void OpenCVTest::thresh_callback(int, void* userdata)
 	namedWindow("Contours", WINDOW_AUTOSIZE);
 	imshow("Contours", drawing);
 }
+
+void OpenCVTest::OpenCamera() {
+	VideoCapture cap(0,700);
+	if (cap.isOpened())
+	{
+		Mat frame,dstFrame;
+		Mat map_x, map_y;
+
+		while (true)
+		{
+			cap >> frame;
+			//cv::flip(frame,dstFrame,1);
+
+			map_x.create(frame.size(), CV_32FC1);
+			map_y.create(frame.size(), CV_32FC1);
+			//遍历每一个像素点，改变map_x & map_y的值,实现对角翻转
+			for (int j = 0; j < frame.rows; j++)
+			{
+				for (int i = 0; i < frame.cols; i++)
+				{
+					map_x.at<float>(j, i) = static_cast<float>(frame.cols - i);
+					map_y.at<float>(j, i) = static_cast<float>(j);
+				}
+			}
+
+			//进行重映射操作
+			remap(frame, dstFrame, map_x, map_y, INTER_LINEAR, BORDER_CONSTANT, Scalar(0, 0, 0));
+
+			cvtColor(frame, map_x, COLOR_BGR2GRAY);
+			imshow("camera1", map_x);
+			imshow("camera", dstFrame);
+			if (waitKey(1) == 27)
+			{
+				break;
+			}
+		}
+		destroyWindow("camera");
+	}
+}

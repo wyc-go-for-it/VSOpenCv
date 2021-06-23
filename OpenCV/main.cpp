@@ -8,7 +8,7 @@ static string img_dir = "F:/OpenCV/WYCOPENCV/data/";
 int main(int argc,char **argv) {
  
 	OpenCVTest ot;
-	ot.OContours(img_dir + "fruits.jpg");
+	ot.OpenCamera();
 	waitKey();
 	destroyAllWindows();
 	return 0;

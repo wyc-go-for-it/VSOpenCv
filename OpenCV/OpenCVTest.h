@@ -70,6 +70,7 @@ public:
 	void ORepairImg(const string &path);//Í¼Æ¬ĞŞ¸´
 	void OContours(const string &path);//²éÕÒÂÖÀª
 	 static void thresh_callback(int, void*);
+	 void OpenCamera();
 
 private:
 	Mat MoveDetect(Mat &background, Mat &frame);
