@@ -69,9 +69,13 @@ public:
 	void OMatchTemplate(const Mat &src,const Mat &temp);//Ä£°åÆ¥Åä
 	void ORepairImg(const string &path);//Í¼Æ¬ÐÞ¸´
 	void OContours(const string &path);//²éÕÒÂÖÀª
-	 static void thresh_callback(int, void*);
-	 void OpenCamera();
-
+	static void thresh_callback(int, void*);
+	void OpenCamera();//ÊÓÆµ
+	void imgBlur();//Æ½»¬
+	void morphologyOperations();//ÐÎÌ¬²Ù×÷
+	void hitAndMiss();
+	void getVerticalAndHorizontalLine();
+	void linearFilter();
 private:
 	Mat MoveDetect(Mat &background, Mat &frame);
 	//½ØÍ¼
@@ -94,4 +98,16 @@ private:
 	Mat ContourSrcGray;
 	int ContourThresh = 100;
 	int ContourMaxThresh = 255;
+	//Æ½»¬
+	int display_dst(const char *caption, const Mat & dst);
+	//ÐÎÌ¬²Ù×÷
+	Mat src;
+	int morph_elem = 0;
+	int morph_size = 0;
+	int morph_operator = 0;
+	int const max_operator = 4;
+	int const max_elem = 2;
+	int const max_kernel_size = 21;
+	const char* window_name = "Morphology Transformations Demo";
+	static void Morphology_Operations(int, void*);
 };

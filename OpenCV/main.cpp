@@ -3,12 +3,12 @@
  
 using namespace std;
 
-static string img_dir = "F:/OpenCV/WYCOPENCV/data/";
+static string img_dir = "../data/";
 
 int main(int argc,char **argv) {
  
 	OpenCVTest ot;
-	ot.OpenCamera();
+	ot.linearFilter();
 	waitKey();
 	destroyAllWindows();
 	return 0;

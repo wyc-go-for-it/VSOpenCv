@@ -718,3 +718,245 @@ void OpenCVTest::OpenCamera() {
 		destroyWindow("camera");
 	}
 }
+
+void OpenCVTest::imgBlur() {
+	int DELAY_BLUR = 100;
+	int MAX_KERNEL_LENGTH = 31;
+	Mat src; Mat dst;
+ 
+	src = imread("../data/lena.jpg", IMREAD_COLOR);
+	if (display_dst("Original Image",src) != 0) { return; }
+	dst = src.clone();
+	for (int i = 1; i < MAX_KERNEL_LENGTH; i = i + 2)
+	{
+		blur(src, dst, Size(i, i), Point(-1, -1));
+		if (display_dst("Homogeneous Blur",dst) != 0) { return ; }
+	}
+ 
+	dst = src.clone();
+	for (int i = 1; i < MAX_KERNEL_LENGTH; i = i + 2)
+	{
+		GaussianBlur(src, dst, Size(i, i), 0, 0);
+		if (display_dst("Gaussian Blur",dst) != 0) { return ; }
+	}
+
+	dst = src.clone();
+	for (int i = 1; i < MAX_KERNEL_LENGTH; i = i + 2)
+	{
+		medianBlur(src, dst, i);
+		if (display_dst("Median Blur",dst) != 0) { return ; }
+	}
+ 
+	dst = src.clone();
+	for (int i = 1; i < MAX_KERNEL_LENGTH; i = i + 2)
+	{
+		bilateralFilter(src, dst, i, i * 2, i / 2);
+		if (display_dst("Bilateral Blur",dst) != 0) { return ; }
+	}
+	waitKey(0);
+}
+
+int OpenCVTest::display_dst(const char *caption, const Mat & dst)
+{
+	imshow(caption, dst);
+	waitKey(150);
+	return 0;
+}
+
+void OpenCVTest::morphologyOperations() {
+	String imageName("../data/morphology.jpg"); // by default
+ 
+	src = imread(imageName, IMREAD_COLOR); // Load an image
+	if (src.empty())
+	{
+		return;
+	}
+	namedWindow(window_name, WINDOW_NORMAL); // Create window
+	createTrackbar("Operator:\n 0: Opening - 1: Closing  \n 2: Gradient - 3: Top Hat \n 4: Black Hat", "Morphology Transformations Demo", &morph_operator, max_operator, Morphology_Operations,this);
+	createTrackbar("Element:\n 0: Rect - 1: Cross - 2: Ellipse", window_name,
+		&morph_elem, max_elem,
+		Morphology_Operations, this);
+	createTrackbar("Kernel size:\n 2n +1", window_name,
+		&morph_size, max_kernel_size,
+		Morphology_Operations, this);
+	Morphology_Operations(0, this);
+}
+void OpenCVTest::Morphology_Operations(int, void * data) {
+	const OpenCVTest *ins = static_cast<OpenCVTest *>(data);
+	/*
+	operation
+	开：MORPH_OPEN：2 通过图像的侵蚀获得的，随后是扩张
+	关：MORPH_CLOSE：3 图像的扩张，然后是侵蚀获得的
+	形态梯度：MORPH_GRADIENT：4 图像的扩张和侵蚀的区别 ,找轮廓
+	顶帽：MORPH_TOPHAT：5 图像与其《开》之间的区别
+	黑帽子：MORPH_BLACKHAT：6	图像与其《必》之间的区别
+	*/
+  int operation = ins->morph_operator + 2;
+  Mat element = getStructuringElement(ins->morph_elem, Size( 2* ins->morph_size + 1, 2* ins->morph_size+1 ), Point(ins->morph_size, ins->morph_size ) );
+  Mat dst;
+  morphologyEx(ins->src, dst, operation, element );
+  imshow(ins->window_name, dst );
+}
+
+void OpenCVTest::hitAndMiss() {
+	Mat input_image = (Mat_<uchar>(16, 16) <<
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 255, 255, 255, 0, 0, 0, 255, 0, 255, 255, 255, 0, 0, 0, 255,
+		0, 255, 255, 255, 0, 0, 0, 0, 0, 255, 255, 255, 0, 0, 0, 255,
+		0, 255, 255, 255, 0, 255, 0, 0, 0, 255, 255, 255, 0, 0, 0, 255,
+		0, 0, 255, 0, 0, 0, 0, 0, 0, 255, 255, 255, 0, 0, 0, 255,
+		0, 0, 255, 0, 0, 255, 255, 0, 0, 255, 255, 255, 0, 0, 0, 255,
+		0, 255, 0, 255, 0, 0, 255, 0, 0, 255, 255, 255, 0, 0, 0, 255,
+		0, 255, 255, 255, 0, 0, 0, 0, 0, 255, 255, 255, 0, 0, 0, 255,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 255, 255, 255, 0, 0, 0, 255, 0, 255, 255, 255, 0, 0, 0, 255,
+		0, 255, 255, 255, 0, 0, 0, 0, 0, 255, 255, 255, 0, 0, 0, 255,
+		0, 255, 255, 255, 0, 255, 0, 0, 0, 255, 255, 255, 0, 0, 0, 255,
+		0, 0, 255, 0, 0, 0, 0, 0, 0, 255, 255, 255, 0, 0, 0, 255,
+		0, 0, 255, 0, 0, 255, 255, 0, 0, 255, 255, 255, 0, 0, 0, 255,
+		0, 255, 0, 255, 0, 0, 255, 0, 0, 255, 255, 255, 0, 0, 0, 255,
+		0, 255, 255, 255, 0, 0, 0, 0, 0, 255, 255, 255, 0, 0, 0, 255);
+
+
+	Mat kernel = (Mat_<int>(3, 3) <<
+		0, -1, -1,
+		1, 1, -1,
+		0, 1, 0);
+	Mat output_image;
+	morphologyEx(input_image, output_image, MORPH_HITMISS, kernel);
+	const int rate = 10;
+	kernel = (kernel + 1) * 127;
+	kernel.convertTo(kernel, CV_8U);
+	cout << kernel << endl;
+	resize(kernel, kernel, Size(), rate, rate, INTER_NEAREST);
+	imshow("kernel", kernel);
+	resize(input_image, input_image, Size(), rate, rate, INTER_NEAREST);
+	imshow("Original", input_image);
+	resize(output_image, output_image, Size(), rate, rate, INTER_NEAREST);
+	imshow("Hit or Miss", output_image);
+	waitKey(0);
+}
+
+void OpenCVTest::getVerticalAndHorizontalLine() {
+
+	// Load the image
+	Mat src = imread("../data/music.jpg");
+	// Check if image is loaded fine
+	if (!src.data)
+		cerr << "Problem loading image!!!" << endl;
+	// Show source image
+	imshow("src", src);
+	// Transform source image to gray if it is not
+	Mat gray;
+	if (src.channels() == 3)
+	{
+		cvtColor(src, gray, COLOR_BGR2GRAY);
+	}
+	else
+	{
+		gray = src;
+	}
+	// Show gray image
+	imshow("gray", gray);
+	// Apply adaptiveThreshold at the bitwise_not of gray, notice the ~ symbol
+	Mat bw;
+	adaptiveThreshold(~gray, bw, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 21, -2);
+	// Show binary image
+	imshow("binary", bw);
+	// Create the images that will use to extract the horizontal and vertical lines
+	Mat horizontal = bw.clone();
+	Mat vertical = bw.clone();
+	// Specify size on horizontal axis
+	int horizontalsize = horizontal.cols / 30;
+	// Create structure element for extracting horizontal lines through morphology operations
+	Mat horizontalStructure = getStructuringElement(MORPH_RECT, Size(horizontalsize, 1));
+	// Apply morphology operations
+	erode(horizontal, horizontal, horizontalStructure, Point(-1, -1));
+	dilate(horizontal, horizontal, horizontalStructure, Point(-1, -1));
+	// Show extracted horizontal lines
+	horizontal = ~horizontal;
+	imshow("horizontal", horizontal);
+	// Specify size on vertical axis
+	int verticalsize = vertical.rows / 30;
+	// Create structure element for extracting vertical lines through morphology operations
+	Mat verticalStructure = getStructuringElement(MORPH_RECT, Size(1, verticalsize));
+	// Apply morphology operations
+	erode(vertical, vertical, verticalStructure, Point(-1, -1));
+	dilate(vertical, vertical, verticalStructure, Point(-1, -1));
+	// Show extracted vertical lines
+	imshow("vertical", vertical);
+ 
+	// Inverse vertical image
+	bitwise_not(vertical, vertical);
+
+	imshow("vertical_bit", vertical);
+	// Extract edges and smooth image according to the logic
+	// 1. extract edges
+	// 2. dilate(edges)
+	// 3. src.copyTo(smooth)
+	// 4. blur smooth img
+	// 5. smooth.copyTo(src, edges)
+	// Step 1
+	Mat edges;
+	adaptiveThreshold(vertical, edges, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 3, -2);
+	imshow("edges", edges);
+	// Step 2
+	Mat kernel = Mat::ones(2, 2, CV_8UC1);
+	dilate(edges, edges, kernel);
+	imshow("dilate", edges);
+	// Step 3
+	Mat smooth;
+	vertical.copyTo(smooth);
+	// Step 4
+	blur(smooth, smooth, Size(2, 2));
+	// Step 5
+	smooth.copyTo(vertical, edges);
+	// Show final result
+	imshow("smooth", vertical);
+	waitKey(0);
+}
+
+void OpenCVTest::linearFilter() {
+	Mat src, dst;
+	Mat kernel;
+	Point anchor;
+	double delta;
+	int ddepth;
+	int kernel_size;
+	string window_name = "filter2D Demo-";
+	String imageName("../data/lena.jpg"); // by default
+ 
+	src = imread(imageName, IMREAD_COLOR); // Load an image
+	if (src.empty())
+	{
+		return;
+	}
+	anchor = Point(-1, -1);
+	delta = 0;
+	ddepth = -1;
+	int ind = 0;
+
+	stringstream s;
+	int offset = window_name.find_first_of("-") + 1;
+
+	for (;;)
+	{
+		char c = (char)waitKey(500);
+		if (c == 27)
+		{
+			break;
+		}
+		kernel_size = 3 + 2 * (ind % 4);
+		kernel = Mat::ones(kernel_size, kernel_size, CV_32F) / (float)(kernel_size*kernel_size);
+		filter2D(src, dst, ddepth, kernel, anchor, delta, BORDER_DEFAULT);
+
+		
+		s.str("");
+		s << kernel_size;
+
+		int len = s.str().length();
+		window_name.replace(offset, len,s.str());
+		imshow(window_name, dst);
+		ind++;
+	}
+}
