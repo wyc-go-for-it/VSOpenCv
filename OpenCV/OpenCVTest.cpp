@@ -960,3 +960,146 @@ void OpenCVTest::linearFilter() {
 		ind++;
 	}
 }
+
+void OpenCVTest::makeImgBorder() {
+
+	Mat src, dst;
+	int top, bottom, left, right;
+	int borderType = BORDER_REPLICATE;
+	const char* window_name = "copyMakeBorder Demo";
+	const char* ori_window_name = "origin copyMakeBorder Demo";
+	RNG rng(12345);
+
+	String imageName("../data/lena.jpg"); // by default
+ 
+	src = imread(imageName, IMREAD_COLOR); // Load an image
+	if (src.empty())
+	{
+		printf(" No data entered, please enter the path to an image file \n");
+		return;
+	}
+	printf("\n \t copyMakeBorder Demo: \n");
+	printf("\t -------------------- \n");
+	printf(" ** Press 'c' to set the border to a random constant value \n");
+	printf(" ** Press 'r' to set the border to be replicated \n");
+	printf(" ** Press 'ESC' to exit the program \n");
+
+	namedWindow(ori_window_name, WINDOW_AUTOSIZE);
+	imshow(ori_window_name, src);
+	
+	top = (int)(0.05*src.rows); bottom = (int)(0.05*src.rows);
+	left = (int)(0.05*src.cols); right = (int)(0.05*src.cols);
+	dst = src;
+
+
+	namedWindow(window_name, WINDOW_AUTOSIZE);
+	imshow(window_name, dst);
+	for (;;)
+	{
+		char c = (char)waitKey();
+		if (c == 27)
+		{
+			break;
+		}
+		else if (c == 'c')
+		{
+			borderType = BORDER_CONSTANT;
+		}
+		else if (c == 'r')
+		{
+			borderType = BORDER_REPLICATE;
+		}
+		else {
+			const Mat reset = dst.adjustROI(-top >> 1, -bottom >> 1, -left >> 1, -right >> 1);
+			imshow("cut_rest", reset);
+		}
+
+		Scalar value(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
+		copyMakeBorder(src, dst, top, bottom, left, right, borderType, value);
+		imshow(window_name, dst);
+	}
+}
+
+void OpenCVTest::simpleEdgeDetector() {
+	Mat src, src_gray;
+	Mat grad;
+	const char* window_name = "Sobel Demo - Simple Edge Detector";
+	int scale = 1;
+	int delta = 0;
+	int ddepth = CV_16S;
+
+	src = imread("../data/lena.jpg", IMREAD_COLOR);
+	if (src.empty())
+	{
+		return ;
+	}
+	imshow("源图像", src);
+
+	GaussianBlur(src, src, Size(3, 3), 0, 0, BORDER_DEFAULT);
+	cvtColor(src, src_gray, COLOR_BGR2GRAY);
+	Mat grad_x, grad_y;
+	Mat abs_grad_x, abs_grad_y;
+	//Scharr( src_gray, grad_x, ddepth, 1, 0, scale, delta, BORDER_DEFAULT );  
+	Sobel(src_gray, grad_x, ddepth, 1, 0, 3, scale, delta, BORDER_DEFAULT);
+	//Scharr( src_gray, grad_y, ddepth, 0, 1, scale, delta, BORDER_DEFAULT );  
+	Sobel(src_gray, grad_y, ddepth, 0, 1, 3, scale, delta, BORDER_DEFAULT);
+	convertScaleAbs(grad_x, abs_grad_x);
+	convertScaleAbs(grad_y, abs_grad_y);
+
+	imshow("X 方向", abs_grad_x);
+
+	imshow("Y 方向", abs_grad_y);
+
+	addWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0, grad);
+	imshow(window_name, grad);
+}
+
+void OpenCVTest::imgHistogram() {
+	Mat src, dst;
+	String imageName("../data/lena.jpg"); // by default
+
+	src = imread(imageName, IMREAD_COLOR);
+	if (src.empty())
+	{
+		return ;
+	}
+
+	imshow("original img", src);
+
+	vector<Mat> bgr_planes;
+	split(src, bgr_planes);
+	int histSize = 256;
+	float range[] = { 0, 256 };
+	const float* histRange = { range };
+	bool uniform = true; bool accumulate = false;
+	Mat b_hist, g_hist, r_hist;
+	calcHist(&bgr_planes[0], 1, 0, Mat(), b_hist, 1, &histSize, &histRange, uniform, accumulate);
+	calcHist(&bgr_planes[1], 1, 0, Mat(), g_hist, 1, &histSize, &histRange, uniform, accumulate);
+	calcHist(&bgr_planes[2], 1, 0, Mat(), r_hist, 1, &histSize, &histRange, uniform, accumulate);
+	// Draw the histograms for B, G and R
+	int hist_w = 1920; int hist_h = 768;
+	int bin_w = cvRound((double)hist_w / histSize);
+	Mat histImage(hist_h, hist_w, CV_8UC3, Scalar(255, 255, 255));
+	normalize(b_hist, b_hist, 0, histImage.rows, NORM_MINMAX, -1, Mat());
+	normalize(g_hist, g_hist, 0, histImage.rows, NORM_MINMAX, -1, Mat());
+	normalize(r_hist, r_hist, 0, histImage.rows, NORM_MINMAX, -1, Mat());
+ 
+
+	for (int i = 1; i < histSize; i++)
+	{
+		line(histImage, Point(bin_w*(i), hist_h - cvRound(b_hist.at<float>(i))),
+			Point(bin_w*(i - 1), hist_h - cvRound(b_hist.at<float>(i - 1))),
+			Scalar(255, 0, 0), 2, 16, 0);
+
+
+		line(histImage, Point(bin_w*(i - 1), hist_h - cvRound(g_hist.at<float>(i - 1))),
+			Point(bin_w*(i), hist_h - cvRound(g_hist.at<float>(i))),
+			Scalar(0, 255, 0), 2, 8, 0);
+		line(histImage, Point(bin_w*(i - 1), hist_h - cvRound(r_hist.at<float>(i - 1))),
+			Point(bin_w*(i), hist_h - cvRound(r_hist.at<float>(i))),
+			Scalar(0, 0, 255), 2, 8, 0);
+	}
+	namedWindow("calcHist Demo", WINDOW_AUTOSIZE);
+	imshow("calcHist Demo", histImage);
+
+}

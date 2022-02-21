@@ -75,7 +75,10 @@ public:
 	void morphologyOperations();//形态操作
 	void hitAndMiss();
 	void getVerticalAndHorizontalLine();
-	void linearFilter();
+	void linearFilter();//自定义滤波
+	void makeImgBorder();//扩展图像边界
+	void simpleEdgeDetector();//边缘检测
+	void imgHistogram();//用曲线的方式显示图片直方图
 private:
 	Mat MoveDetect(Mat &background, Mat &frame);
 	//截图
