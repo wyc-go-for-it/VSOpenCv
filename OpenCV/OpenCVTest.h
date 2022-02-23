@@ -79,6 +79,7 @@ public:
 	void makeImgBorder();//扩展图像边界
 	void simpleEdgeDetector();//边缘检测
 	void imgHistogram();//用曲线的方式显示图片直方图
+	void pointTest();//点与多边形位置检测
 private:
 	Mat MoveDetect(Mat &background, Mat &frame);
 	//截图
