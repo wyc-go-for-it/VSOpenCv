@@ -15,6 +15,7 @@ void OpenCVTest::readVideo(const string &path)
 	if (!video.isOpened())  //对video进行异常检测  
 	{
 		cout << "video open error!" << endl;
+		waitKey(100000);
 		return;
 	}
 	// 获取帧数
@@ -29,7 +30,8 @@ void OpenCVTest::readVideo(const string &path)
 	Mat result;
 	// 存储前一帧图像
 	Mat temp;
-	for (int i = 0; i < frameCount; i++)
+	int i = 0;
+	for (;;)
 	{
 		// 读帧进frame
 		video >> frame;
@@ -49,6 +51,7 @@ void OpenCVTest::readVideo(const string &path)
 		{
 			// 调用MoveDetect()进行运动物体检测，返回值存入result
 			result = MoveDetect(frame, frame);
+			i++;
 		}
 		//若不是第一帧（temp有值了）
 		else
@@ -58,7 +61,7 @@ void OpenCVTest::readVideo(const string &path)
 		}
 		cv::imshow("result", result);
 		//按原FPS显示
-		if (waitKey((int)(500 / FPS)) == 27)
+ 		if (waitKey(FPS) == 27)
 		{
 			cout << "ESC退出!" << endl;
 			break;
@@ -682,7 +685,7 @@ void OpenCVTest::thresh_callback(int, void* userdata)
 }
 
 void OpenCVTest::OpenCamera() {
-	VideoCapture cap(0,700);
+	VideoCapture cap(0, CAP_DSHOW);
 	if (cap.isOpened())
 	{
 		Mat frame,dstFrame;
@@ -1163,4 +1166,62 @@ void OpenCVTest::pointTest() {
 	imshow("Distance", drawing);
 	waitKey(0);
 
+}
+
+void OpenCVTest::writeVideo() {
+	const string source = "F:/OpenCV/WYCOPENCV/OpenCV/data/Megamind.avi";           // the source file name
+	const bool askOutputType = false;  // If false it will use the inputs codec type
+	VideoCapture inputVideo(source);              // Open input
+	if (!inputVideo.isOpened())
+	{
+		cout << "Could not open the input video: " << source << endl;
+		return;
+	}
+	string::size_type pAt = source.find_last_of('.');                  // Find extension point
+	const string NAME = source.substr(0, pAt) + "wyc" + ".avi";   // Form the new name with container
+	int ex = static_cast<int>(inputVideo.get(CAP_PROP_FOURCC));     // Get Codec Type- Int form
+	// Transform from int to char via Bitwise operators
+	char EXT[] = { (char)(ex & 0XFF) , (char)((ex & 0XFF00) >> 8),(char)((ex & 0XFF0000) >> 16),(char)((ex & 0XFF000000) >> 24), 0 };
+	Size S = Size((int)inputVideo.get(CAP_PROP_FRAME_WIDTH),(int)inputVideo.get(CAP_PROP_FRAME_HEIGHT));
+
+	// 获取帧数
+	double fps = inputVideo.get(CAP_PROP_FPS);
+
+	VideoWriter outputVideo;                                        // Open the output
+	if (askOutputType)
+		outputVideo.open(NAME, ex = -1, inputVideo.get(CAP_PROP_FPS), S, true);
+	else
+		outputVideo.open(NAME, ex, inputVideo.get(CAP_PROP_FPS), S, true);
+
+	if (!outputVideo.isOpened())
+	{
+		cout << "Could not open the output video for write: " << source << endl;
+		return ;
+	}
+	cout << "Input frame resolution: Width=" << S.width << "  Height=" << S.height
+		<< " of nr#: " << inputVideo.get(CAP_PROP_FRAME_COUNT) << endl;
+	cout << "Input codec type: " << EXT << endl;
+	int channel = 2; // Select the channel to save
+	switch ('R')
+	{
+	case 'R': channel = 2; break;
+	case 'G': channel = 1; break;
+	case 'B': channel = 0; break;
+	}
+	Mat src, res;
+	vector<Mat> spl;
+	for (;;) //Show the image captured in the window and repeat
+	{
+		inputVideo >> src;              // read
+		if (src.empty()) break;         // check if at end
+
+		split(src, spl);                // process - extract only the correct channel
+		for (int i = 0; i < 3; ++i)
+			if (i != channel)
+				spl[i] = Mat::zeros(S, spl[0].type());
+		merge(spl, res);
+		//outputVideo.write(res); //save or
+		outputVideo << res;
+	}
+	cout << "Finished writing" << endl;
 }
