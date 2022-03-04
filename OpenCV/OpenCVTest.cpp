@@ -1,7 +1,14 @@
 #include "OpenCVTest.h"
 #include <opencv2/text.hpp>
 #include <opencv2/dnn.hpp>
+#include "opencv2/features2d.hpp"
+#include "opencv2/highgui.hpp"
+#include "opencv2/xfeatures2d.hpp"
+#include "opencv2/core.hpp"
+
 using namespace std;
+using namespace cv::xfeatures2d;
+
 OpenCVTest::OpenCVTest()
 {
 }
@@ -1169,7 +1176,7 @@ void OpenCVTest::pointTest() {
 }
 
 void OpenCVTest::writeVideo() {
-	const string source = "F:/OpenCV/WYCOPENCV/OpenCV/data/Megamind.avi";           // the source file name
+	const string source = "../data/Megamind.avi";           // the source file name
 	const bool askOutputType = false;  // If false it will use the inputs codec type
 	VideoCapture inputVideo(source);              // Open input
 	if (!inputVideo.isOpened())
@@ -1201,8 +1208,14 @@ void OpenCVTest::writeVideo() {
 	cout << "Input frame resolution: Width=" << S.width << "  Height=" << S.height
 		<< " of nr#: " << inputVideo.get(CAP_PROP_FRAME_COUNT) << endl;
 	cout << "Input codec type: " << EXT << endl;
+
+	namedWindow("src");
+	imshow("src", Mat(Size(3,3), CV_8UC1));
+
 	int channel = 2; // Select the channel to save
-	switch ('R')
+	int code = waitKey(0);
+	cout << "return code:" << code << endl;
+	switch (code)
 	{
 	case 'R': channel = 2; break;
 	case 'G': channel = 1; break;
@@ -1220,8 +1233,125 @@ void OpenCVTest::writeVideo() {
 			if (i != channel)
 				spl[i] = Mat::zeros(S, spl[0].type());
 		merge(spl, res);
+		
+		imshow("spl", res);
+
+		waitKey(fps);
+
 		//outputVideo.write(res); //save or
 		outputVideo << res;
 	}
+	
 	cout << "Finished writing" << endl;
+}
+
+void OpenCVTest::findCorner() {
+	corner_src = imread("../data/corner.jpg", IMREAD_COLOR);
+	cvtColor(corner_src, corner_src_gray, COLOR_BGR2GRAY);
+	namedWindow(source_window, WINDOW_AUTOSIZE);
+	createTrackbar("Threshold: ", source_window, &thresh, 255, cornerHarris_demo,this);
+	imshow(source_window, corner_src);
+	cornerHarris_demo(0, this);
+	waitKey(0);
+}
+
+void OpenCVTest::cornerHarris_demo(int, void * data)
+{
+	const OpenCVTest *ins = (OpenCVTest *)data;
+
+	Mat dst, dst_norm, dst_norm_scaled;
+	dst = Mat::zeros(ins->corner_src.size(), CV_32FC1);
+	int blockSize = 2;
+	int apertureSize = 3;
+	double k = 0.04;
+	cornerHarris(ins->corner_src_gray, dst, blockSize, apertureSize, k, BORDER_DEFAULT);
+	normalize(dst, dst_norm, 0, 255, NORM_MINMAX, CV_32FC1, Mat());
+	convertScaleAbs(dst_norm, dst_norm_scaled);
+	for (int j = 0; j < dst_norm.rows; j++)
+	{
+		for (int i = 0; i < dst_norm.cols; i++)
+		{
+			if ((int)dst_norm.at<float>(j, i) > ins->thresh)
+			{
+				circle(dst_norm_scaled, Point(i, j), 5, Scalar(0), 2, 8, 0);
+			}
+		}
+	}
+	namedWindow("Corners detected", WINDOW_AUTOSIZE);
+	imshow("Corners detected", dst_norm_scaled);
+}
+
+void OpenCVTest::trackCorner() {
+	corner_src = imread("../data/home.jpg", IMREAD_COLOR);
+	cvtColor(corner_src, corner_src_gray, COLOR_BGR2GRAY);
+	namedWindow(source_window, WINDOW_AUTOSIZE);
+	createTrackbar("Max  corners:", source_window, &maxCorners, 100, goodFeaturesToTrack_Demo,this);
+	imshow(source_window, corner_src);
+	goodFeaturesToTrack_Demo(0, this);
+	waitKey(0);
+}
+void OpenCVTest::goodFeaturesToTrack_Demo(int, void * data) {
+
+	 OpenCVTest * const ins = (OpenCVTest *)data;
+
+	if (ins->maxCorners < 1) { ins -> maxCorners = 1; }
+	RNG rng(12345);
+	vector<Point2f> corners;
+	double qualityLevel = 0.01;
+	double minDistance = 10;
+	int blockSize = 3, gradiantSize = 3;
+	bool useHarrisDetector = false;
+	double k = 0.04;
+	Mat copy;
+	copy = ins->corner_src.clone();
+	goodFeaturesToTrack(ins->corner_src_gray,
+		corners,
+		ins->maxCorners,
+		qualityLevel,
+		minDistance,
+		Mat(),
+		blockSize,
+		gradiantSize,
+		useHarrisDetector,
+		k);
+	cout << "** Number of corners detected: " << corners.size() << endl;
+	int r = 4;
+	for (size_t i = 0; i < corners.size(); i++)
+	{
+		circle(copy, corners[i], r, Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255)), -1, 8, 0);
+	}
+	namedWindow("Image", WINDOW_AUTOSIZE);
+	imshow("Image", copy);
+	Size winSize = Size(5, 5);
+	Size zeroZone = Size(-1, -1);
+	TermCriteria criteria = TermCriteria(TermCriteria::EPS + TermCriteria::COUNT, 40, 0.001);
+	cornerSubPix(ins->corner_src_gray, corners, winSize, zeroZone, criteria);
+	for (size_t i = 0; i < corners.size(); i++)
+	{
+		cout << " -- Refined Corner [" << i << "]  (" << corners[i].x << "," << corners[i].y << ")" << endl;
+	}
+}
+
+void OpenCVTest::featureDetect() {
+	
+	Mat img_1 = imread("../data/box.png", IMREAD_GRAYSCALE);
+	Mat img_2 = imread("../data/box_in_scene.png", IMREAD_GRAYSCALE);
+	if (!img_1.data || !img_2.data)
+	{
+		std::cout << " --(!) Error reading images " << std::endl; return;
+	}
+	//-- Step 1: Detect the keypoints using SURF Detector
+	int minHessian = 400;
+	Ptr<SURF> detector = SURF::create();
+	std::vector<KeyPoint> keypoints_1, keypoints_2;
+	detector->detect(img_1, keypoints_1);
+	detector->detect(img_2, keypoints_2);
+	//-- Draw keypoints
+	Mat img_keypoints_1; Mat img_keypoints_2;
+	drawKeypoints(img_1, keypoints_1, img_keypoints_1, Scalar::all(-1), DrawMatchesFlags::DEFAULT);
+	drawKeypoints(img_2, keypoints_2, img_keypoints_2, Scalar::all(-1), DrawMatchesFlags::DEFAULT);
+	//-- Show detected (drawn) keypoints
+	imshow("Keypoints 1", img_keypoints_1);
+	imshow("Keypoints 2", img_keypoints_2);
+	waitKey(0);
 }

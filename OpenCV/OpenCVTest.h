@@ -80,7 +80,10 @@ public:
 	void simpleEdgeDetector();//边缘检测
 	void imgHistogram();//用曲线的方式显示图片直方图
 	void pointTest();//点与多边形位置检测
-	void writeVideo();
+	void writeVideo();//录视频
+	void findCorner();//查找边角
+	void trackCorner();
+	void featureDetect();
 private:
 	Mat MoveDetect(Mat &background, Mat &frame);
 	//截图
@@ -115,4 +118,11 @@ private:
 	int const max_kernel_size = 21;
 	const char* window_name = "Morphology Transformations Demo";
 	static void Morphology_Operations(int, void*);
+	//查找边角
+	Mat corner_src, corner_src_gray;
+	int thresh = 200;
+	int maxCorners = 10;
+	const char* source_window = "Source image";
+	static void cornerHarris_demo(int, void*);
+	static void goodFeaturesToTrack_Demo(int, void *data);
 };
