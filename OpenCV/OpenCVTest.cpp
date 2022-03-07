@@ -1340,18 +1340,163 @@ void OpenCVTest::featureDetect() {
 	{
 		std::cout << " --(!) Error reading images " << std::endl; return;
 	}
-	//-- Step 1: Detect the keypoints using SURF Detector
-	int minHessian = 400;
-	Ptr<SURF> detector = SURF::create();
+ 
+	int minHessian = 10;
+	Ptr<SURF> detector = SURF::create(minHessian);
 	std::vector<KeyPoint> keypoints_1, keypoints_2;
-	detector->detect(img_1, keypoints_1);
-	detector->detect(img_2, keypoints_2);
-	//-- Draw keypoints
+
+	Mat descriptors_1, descriptors_2;
+
+	detector->detectAndCompute(img_1, Mat(), keypoints_1, descriptors_1);
+	detector->detectAndCompute(img_2, Mat(), keypoints_2, descriptors_2);
+ 
 	Mat img_keypoints_1; Mat img_keypoints_2;
 	drawKeypoints(img_1, keypoints_1, img_keypoints_1, Scalar::all(-1), DrawMatchesFlags::DEFAULT);
 	drawKeypoints(img_2, keypoints_2, img_keypoints_2, Scalar::all(-1), DrawMatchesFlags::DEFAULT);
-	//-- Show detected (drawn) keypoints
+ 
 	imshow("Keypoints 1", img_keypoints_1);
 	imshow("Keypoints 2", img_keypoints_2);
+
+	BFMatcher matcher(NORM_L2);
+	std::vector< DMatch > matches;
+	matcher.match(descriptors_1, descriptors_2, matches);
+
+	Mat img_matches;
+	drawMatches(img_1, keypoints_1, img_2, keypoints_2, matches, img_matches);
+	imshow("Matches", img_matches);
+
 	waitKey(0);
+}
+
+void OpenCVTest::findDetectObj() {
+	Mat img_object = imread("../data/box.png", IMREAD_GRAYSCALE);
+	Mat img_scene = imread("../data/box_in_scene.png", IMREAD_GRAYSCALE);
+	if (!img_object.data || !img_scene.data)
+	{
+		std::cout << " --(!) Error reading images " << std::endl; return;
+	}
+
+	imshow("img_object", img_object);
+	imshow("img_scene", img_object);
+
+	//-- Step 1: Detect the keypoints and extract descriptors using SURF
+	int minHessian = 400;
+	Ptr<SURF> detector = SURF::create(minHessian);
+	std::vector<KeyPoint> keypoints_object, keypoints_scene;
+	Mat descriptors_object, descriptors_scene;
+	detector->detectAndCompute(img_object, Mat(), keypoints_object, descriptors_object);
+	detector->detectAndCompute(img_scene, Mat(), keypoints_scene, descriptors_scene);
+	//-- Step 2: Matching descriptor vectors using FLANN matcher
+	FlannBasedMatcher matcher;
+	std::vector< DMatch > matches;
+	matcher.match(descriptors_object, descriptors_scene, matches);
+	double max_dist = 0; double min_dist = 100;
+	//-- Quick calculation of max and min distances between keypoints
+	for (int i = 0; i < descriptors_object.rows; i++)
+	{
+		double dist = matches[i].distance;
+		if (dist < min_dist) min_dist = dist;
+		if (dist > max_dist) max_dist = dist;
+	}
+	printf("-- Max dist : %f \n", max_dist);
+	printf("-- Min dist : %f \n", min_dist);
+	//-- Draw only "good" matches (i.e. whose distance is less than 3*min_dist )
+	std::vector< DMatch > good_matches;
+	for (int i = 0; i < descriptors_object.rows; i++)
+	{
+		if (matches[i].distance <= 3 * min_dist)
+		{
+			good_matches.push_back(matches[i]);
+		}
+	}
+	Mat img_matches;
+	drawMatches(img_object, keypoints_object, img_scene, keypoints_scene,good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),std::vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
+	//-- Localize the object
+	std::vector<Point2f> obj;
+	std::vector<Point2f> scene;
+	for (size_t i = 0; i < good_matches.size(); i++)
+	{
+		//-- Get the keypoints from the good matches
+		obj.push_back(keypoints_object[good_matches[i].queryIdx].pt);
+		scene.push_back(keypoints_scene[good_matches[i].trainIdx].pt);
+	}
+	Mat H = findHomography(obj, scene, RANSAC);
+	//-- Get the corners from the image_1 ( the object to be "detected" )
+	std::vector<Point2f> obj_corners(4);
+	obj_corners[0] = cv::Point(0, 0); obj_corners[1] = cv::Point(img_object.cols, 0);
+	obj_corners[2] = cv::Point(img_object.cols, img_object.rows); obj_corners[3] = cv::Point(0, img_object.rows);
+	std::vector<Point2f> scene_corners(4);
+	perspectiveTransform(obj_corners, scene_corners, H);
+	//-- Draw lines between the corners (the mapped object in the scene - image_2 )
+	line(img_matches, scene_corners[0] + Point2f(img_object.cols, 0), scene_corners[1] + Point2f(img_object.cols, 0), Scalar(0, 255, 0), 4);
+	line(img_matches, scene_corners[1] + Point2f(img_object.cols, 0), scene_corners[2] + Point2f(img_object.cols, 0), Scalar(0, 255, 0), 4);
+	line(img_matches, scene_corners[2] + Point2f(img_object.cols, 0), scene_corners[3] + Point2f(img_object.cols, 0), Scalar(0, 255, 0), 4);
+	line(img_matches, scene_corners[3] + Point2f(img_object.cols, 0), scene_corners[0] + Point2f(img_object.cols, 0), Scalar(0, 255, 0), 4);
+	//-- Show detected matches
+	imshow("Good Matches & Object detection", img_matches);
+}
+
+void changeFrame(int framePos, void * data) {
+
+	VideoCapture *capture = (VideoCapture*)data;
+
+	capture->set(CAP_PROP_POS_FRAMES, framePos);
+}
+void OpenCVTest::faceDetect() {
+
+	const string face_cascade_name = "../data/haarcascades/haarcascade_frontalface_alt.xml";
+	const string  eyes_cascade_name = "../data/haarcascades/haarcascade_eye_tree_eyeglasses.xml";
+	VideoCapture capture;
+	Mat frame;
+	//-- 1. Load the cascades
+	if (!face_cascade.load(face_cascade_name)) { printf("--(!)Error loading face cascade\n"); return ; };
+	if (!eyes_cascade.load(eyes_cascade_name)) { printf("--(!)Error loading eyes cascade\n"); return ; };
+	//-- 2. Read the video stream
+	capture.open("../data/face.mp4");
+	if (!capture.isOpened()) { printf("--(!)Error opening video capture\n"); return ; }
+
+	int fps = capture.get(CAP_PROP_FPS);
+	int count = capture.get(CAP_PROP_FRAME_COUNT);
+	namedWindow(face_window);
+	createTrackbar("count_frame:", face_window, 0, count, changeFrame, &capture);
+
+	while (capture.read(frame))
+	{
+		if (frame.empty())
+		{
+			printf(" --(!) No captured frame -- Break!");
+			break;
+		}
+		//-- 3. Apply the classifier to the frame
+		detectAndDisplay(frame);
+		char c = (char)waitKey(1000 / fps);
+		if (c == 27) { break; } // escape
+	}
+
+}
+void OpenCVTest::detectAndDisplay(Mat frame) {
+	std::vector<Rect> faces;
+	Mat frame_gray;
+
+	cvtColor(frame, frame_gray, COLOR_BGR2GRAY);
+	equalizeHist(frame_gray, frame_gray);
+	//-- Detect faces
+	face_cascade.detectMultiScale(frame_gray, faces, 1.1, 2, 0 | CASCADE_SCALE_IMAGE, Size(30, 30));
+	for (size_t i = 0; i < faces.size(); i++)
+	{
+		Point center(faces[i].x + faces[i].width / 2, faces[i].y + faces[i].height / 2);
+		ellipse(frame, center, Size(faces[i].width / 2, faces[i].height / 2), 0, 0, 360, Scalar(255, 0, 255), 4, 8, 0);
+		Mat faceROI = frame_gray(faces[i]);
+		std::vector<Rect> eyes;
+		//-- In each face, detect eyes
+		eyes_cascade.detectMultiScale(faceROI, eyes, 1.1, 2, 0 | CASCADE_SCALE_IMAGE, Size(30, 30));
+		for (size_t j = 0; j < eyes.size(); j++)
+		{
+			Point eye_center(faces[i].x + eyes[j].x + eyes[j].width / 2, faces[i].y + eyes[j].y + eyes[j].height / 2);
+			int radius = cvRound((eyes[j].width + eyes[j].height)*0.25);
+			circle(frame, eye_center, radius, Scalar(255, 0, 0), 4, 8, 0);
+		}
+	}
+	//-- Show what you got
+	imshow(face_window, frame);
 }

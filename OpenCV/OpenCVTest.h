@@ -83,7 +83,10 @@ public:
 	void writeVideo();//录视频
 	void findCorner();//查找边角
 	void trackCorner();
-	void featureDetect();
+	void featureDetect();//查找特征点
+	void findDetectObj();//查找已匹配对象
+	void faceDetect();//人脸检测
+	void detectAndDisplay(Mat frame);
 private:
 	Mat MoveDetect(Mat &background, Mat &frame);
 	//截图
@@ -125,4 +128,9 @@ private:
 	const char* source_window = "Source image";
 	static void cornerHarris_demo(int, void*);
 	static void goodFeaturesToTrack_Demo(int, void *data);
+
+	//人脸检测
+	CascadeClassifier face_cascade;
+	CascadeClassifier eyes_cascade;
+	const char *face_window = "face_window";
 };
